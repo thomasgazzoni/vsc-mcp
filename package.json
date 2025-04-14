@@ -1,0 +1,41 @@
+{
+  "name": "vsc-mcp",
+  "version": "0.1.0",
+  "description": "A Model Context Protocol to Language Server Protocol bridge",
+  "private": false,
+  "type": "module",
+  "module": "index.ts",
+  "bin": {
+    "vsc-mcp": "./build/index.js"
+  },
+  "files": [
+    "build",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf build",
+    "watch": "tsc --watch",
+    "test": "vitest",
+    "start": "node build/index.js",
+    "inspect": "bunx @modelcontextprotocol/inspector bun src/index.ts",
+    "postbuild": "chmod +x ./build/index.js",
+    "prepublishOnly": "bun run clean && bun run build"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.9.0",
+    "dotenv": "16.5.0",
+    "vscode-jsonrpc": "8.2.1",
+    "vscode-languageserver-protocol": "3.17.5",
+    "vscode-languageserver-textdocument": "^1.0.12",
+    "vscode-languageserver-types": "3.17.5",
+    "typescript-language-server": "4.3.4",
+    "zod": "3.24.2"
+  },
+  "devDependencies": {
+    "@types/bun": "1.2.9",
+    "@types/node": "^22.14.0",
+    "typescript": "^5.8.3",
+    "vitest": "3.1.1"
+  }
+}
