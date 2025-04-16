@@ -1,6 +1,7 @@
 import * as cp from "child_process";
 import * as fs from "fs";
 import * as path from "path";
+import * as net from "net";
 import { createMessageConnection } from "vscode-jsonrpc";
 import {
   StreamMessageReader,
@@ -53,7 +54,6 @@ export async function getLSPInstance(projectRoot: string, useVSCode = true) {
 
   if (useVSCode) {
     // Connect to VS Code's language server via socket
-    const net = require("net");
     const socket = net.connect({ port: 5870 }); // Use the port VS Code is listening on
 
     reader = new StreamMessageReader(socket);
