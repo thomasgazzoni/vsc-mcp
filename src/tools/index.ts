@@ -1,5 +1,3 @@
-export * from './rename-symbol.js';
-export * from './apply-edit.js';
 export * from './edit-symbol.js';
 export * from './write-file.js';
 export * from './search-replace-file.js';
