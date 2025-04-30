@@ -118,3 +118,14 @@ Currently, the following tools are available:
   - Ignores whitespace differences when searching (spaces, tabs, newlines)
   - Supports flexible matching of content patterns
   - Returns the number of replacements made
+  
+- `get_errors`: Fetches code errors and issues for a specific file using the LSP textDocument/diagnostic API.
+  - Provides detailed diagnostics including error messages, severity, and location
+  - Uses the TypeScript language server to validate code
+  - Returns structured information about code issues
+
+- `find_references`: Finds all references to a symbol (function, class, etc.) by name and type in a given file using LSP.
+  - Supports various symbol types: function, method, class, interface, variable, constant, property, field
+  - Uses LSP's textDocument/reference API to find all references to a symbol
+  - Returns a list of references with file paths and positions
+  - Helps with code analysis, refactoring, and understanding code usage

@@ -1,15 +1,18 @@
-import * as fs from "fs";
-import * as path from "path";
 import { MessageConnection } from "vscode-jsonrpc";
+import {
+  DocumentSymbol,
+  Location,
+  SymbolKind,
+  WorkspaceSymbol,
+} from "vscode-languageserver-types";
 import { logger } from "./logger.js";
-import { DocumentSymbol, TextDocumentIdentifier, Location, WorkspaceSymbol, SymbolKind, Position } from "vscode-languageserver-types";
 
 /**
  * Finds the position of a symbol by name in a file
  */
 export async function findSymbolPositionByName(
   connection: MessageConnection,
-  fileUri: string,
+  fileRelativeUri: string,
   symbolName: string,
   symbolType: string
 ): Promise<Location | null> {
@@ -24,11 +27,23 @@ export async function findSymbolPositionByName(
     logger.debug(`Workspace symbols: ${JSON.stringify(workspaceSymbols)}`);
     if (workspaceSymbols && workspaceSymbols.length > 0) {
       for (const symbol of workspaceSymbols) {
+        logger.debug(
+          `location symbols: ${JSON.stringify({
+            fileRelativeUri,
+            symbolName,
+            symbolType,
+            mathed: matchesSymbolType(symbol.kind, symbolType),
+            locationUri: symbol.location.uri,
+            name: symbol.name,
+            kind: symbol.kind,
+          })}`
+        );
+
         if (
           symbol.name === symbolName &&
           matchesSymbolType(symbol.kind, symbolType) &&
-          (symbol.location.uri === fileUri ||
-            symbol.location.uri === fileUri.replace("file://", ""))
+          (symbol.location.uri === fileRelativeUri ||
+            symbol.location.uri === fileRelativeUri.replace("file://", ""))
         ) {
           const range = (symbol.location as any).range;
 
@@ -39,7 +54,7 @@ export async function findSymbolPositionByName(
           );
 
           // Ensure the location has a range property
-          if ('range' in symbol.location) {
+          if ("range" in symbol.location) {
             return symbol.location;
           }
         }
@@ -50,7 +65,7 @@ export async function findSymbolPositionByName(
     logger.debug(`Trying to find symbol via textDocument/documentSymbol`);
     const documentSymbols = await connection.sendRequest<DocumentSymbol[]>(
       "textDocument/documentSymbol",
-      { textDocument: { uri: fileUri } }
+      { textDocument: { uri: fileRelativeUri } }
     );
 
     logger.debug(`Document symbols: ${JSON.stringify(documentSymbols)}`);
@@ -66,7 +81,7 @@ export async function findSymbolPositionByName(
           `Found symbol in document symbols: ${JSON.stringify(foundSymbol)}`
         );
         return {
-          uri: fileUri,
+          uri: fileRelativeUri,
           range: foundSymbol.range,
         };
       }
@@ -77,7 +92,7 @@ export async function findSymbolPositionByName(
     const implementations = await connection.sendRequest<Location[]>(
       "textDocument/implementation",
       {
-        textDocument: { uri: fileUri },
+        textDocument: { uri: fileRelativeUri },
         position: { line: 0, character: 0 },
       }
     );
@@ -85,10 +100,13 @@ export async function findSymbolPositionByName(
     logger.debug(`Implementations: ${JSON.stringify(implementations)}`);
     if (implementations && implementations.length > 0) {
       for (const impl of implementations) {
-        if (impl.uri === fileUri || impl.uri === fileUri.replace("file://", "")) {
+        if (
+          impl.uri === fileRelativeUri ||
+          impl.uri === fileRelativeUri.replace("file://", "")
+        ) {
           // This is a rough approximation, as we don't have the symbol name from implementation
           // In a real implementation, you might want to check the content at this location
-          if ('range' in impl) {
+          if ("range" in impl) {
             return impl;
           }
         }
@@ -140,7 +158,7 @@ function findSymbolInDocumentSymbols(
 /**
  * Matches a symbol kind to a type string
  */
-function matchesSymbolType(kind: SymbolKind, typeStr: string): boolean {
+function matchesSymbolType(kind: number, typeStr: string): boolean {
   switch (typeStr) {
     case "function":
       return kind === SymbolKind.Function;

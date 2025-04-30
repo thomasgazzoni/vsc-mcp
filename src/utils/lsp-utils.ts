@@ -43,7 +43,30 @@ export function findProjectRoot(filePath: string): string {
   return projectRoot;
 }
 
-export async function getLSPInstance(projectRoot: string, useVSCode = true) {
+export async function getLSPInstance(absolutePath: string) {
+  // Find project root
+  const projectRoot = findProjectRoot(absolutePath);
+  
+  // Read file content
+  const fileContent = fs.readFileSync(absolutePath, "utf-8");
+  
+  // Create file URI
+  const fileUri = `file://${absolutePath}`;
+  
+  // Check if we should use VS Code's language server
+  const useVSCode = process.env.USE_VSCODE_LSP === "true";
+  
+  // Create relative URI based on useVSCode setting
+  let fileRelativeUri: string;
+  if (useVSCode) {
+    // Create a fixed URI format for VS Code
+    const relativePath = absolutePath.replace(projectRoot, "").replace(/^\//, "");
+    fileRelativeUri = `file:///home/workspace/project/${relativePath}`;
+  } else {
+    // Use direct file URI
+    fileRelativeUri = fileUri;
+  }
+  
   logger.debug(
     `Starting TypeScript language server for project: ${projectRoot}`
   );
@@ -52,9 +75,11 @@ export async function getLSPInstance(projectRoot: string, useVSCode = true) {
   let reader;
   let writer;
 
+  const vscodePort = parseInt(process.env.VSCODE_BRIDGE_PORT || "5007", 10);
+
   if (useVSCode) {
     // Connect to VS Code's language server via socket
-    const socket = net.connect({ port: 5870 }); // Use the port VS Code is listening on
+    const socket = net.connect({ port: vscodePort });
 
     reader = new StreamMessageReader(socket);
     writer = new StreamMessageWriter(socket);
@@ -118,7 +143,13 @@ export async function getLSPInstance(projectRoot: string, useVSCode = true) {
   logger.debug("Initializing language server");
   await connection.sendRequest(InitializeRequest.type.method, initializeParams);
   logger.debug("Language server initialized");
-  return { connection, serverProcess };
+  return { 
+    connection, 
+    serverProcess, 
+    projectRoot, 
+    fileRelativeUri, 
+    fileContent 
+  };
 }
 
 /**

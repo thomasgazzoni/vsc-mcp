@@ -20,6 +20,9 @@ export function isPathAllowed(filePath: string): { allowed: boolean; error?: str
   
   // Split the comma-separated list of directories
   const allowedDirs = allowedDirsEnv.split(",").map(dir => dir.trim());
+
+  // add docker volume path
+  allowedDirs.push("/home/workspace/project");
   
   // If the list is empty, default to the current working directory
   if (allowedDirs.length === 0) {

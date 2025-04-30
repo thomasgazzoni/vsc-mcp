@@ -18,7 +18,13 @@ import {
   readSymbolTool,
   readFileHandler,
   readFilePrompts,
-  readFileTool
+  readFileTool,
+  getErrorsHandler,
+  getErrorsPrompts,
+  getErrorsTool,
+  findReferencesHandler,
+  findReferencesPrompts,
+  findReferencesTool
 } from "./tools/index.js";
 import { logger } from "./utils/logger.js";
 
@@ -100,6 +106,32 @@ async function main() {
     readFileTool.name,
     readFileTool.paramsSchema,
     readFilePrompts,
+  );
+
+  logger.info("Registering get_errors tool");
+  server.tool(
+    getErrorsTool.name,
+    getErrorsTool.description,
+    getErrorsTool.paramsSchema,
+    getErrorsHandler,
+  );
+  server.prompt(
+    getErrorsTool.name,
+    getErrorsTool.paramsSchema,
+    getErrorsPrompts,
+  );
+
+  logger.info("Registering find_references tool");
+  server.tool(
+    findReferencesTool.name,
+    findReferencesTool.description,
+    findReferencesTool.paramsSchema,
+    findReferencesHandler,
+  );
+  server.prompt(
+    findReferencesTool.name,
+    findReferencesTool.paramsSchema,
+    findReferencesPrompts,
   );
 
   // Create and connect the transport

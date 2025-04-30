@@ -1,19 +1,12 @@
-import * as fs from "fs";
-import * as path from "path";
 import {
-  DidOpenTextDocumentNotification,
-  WorkspaceEdit,
+  WorkspaceEdit
 } from "vscode-languageserver-protocol";
 import { z } from "zod";
-import { logger } from "../utils/logger.js";
-import { isPathAllowed } from "../utils/file-utils.js";
 import {
-  applyWorkspaceEdit,
-  findProjectRoot,
-  getLanguageIdFromPath,
-  getLSPInstance,
+  applyWorkspaceEdit
 } from "../utils/lsp-utils.js";
 import { findSymbolPositionByName } from "../utils/symbol-utils.js";
+import { setupLSPTool } from "../utils/tool-utils.js";
 
 export const editSymbolTool = {
   name: "edit_symbol",
@@ -80,124 +73,59 @@ export async function editSymbolHandler({
   type: string;
   newContent: string;
 }) {
-  try {
-    const absolutePath = path.resolve(filePath);
-    
-    // Check if the path is allowed
-    const pathCheck = isPathAllowed(absolutePath);
-    if (!pathCheck.allowed) {
+  return await setupLSPTool(editSymbolTool.name, filePath, async (params) => {
+    // Find the symbol by name in the file
+    const symbolPosition = await findSymbolPositionByName(
+      params.connection,
+      params.fileRelativeUri,
+      name,
+      type
+    );
+
+    if (!symbolPosition) {
       return {
         isError: true,
         content: [
           {
             type: "text" as const,
-            text: pathCheck.error || "Access denied: File path is not within allowed directories",
+            text: `Symbol '${name}' of type '${type}' not found in file ${filePath}`,
           },
         ],
       };
     }
-    
-    if (!fs.existsSync(absolutePath)) {
-      return {
-        isError: true,
-        content: [
+
+    // Create a workspace edit to update the symbol
+    const workspaceEdit: WorkspaceEdit = {
+      changes: {
+        [params.fileRelativeUri]: [
           {
-            type: "text" as const,
-            text: `File not found: ${absolutePath}`,
+            range: symbolPosition.range,
+            newText: newContent,
           },
         ],
-      };
-    }
+      },
+    };
 
-    const fileUri = `file://${absolutePath}`;
-    const fileContent = fs.readFileSync(absolutePath, "utf-8");
-    const projectRoot = findProjectRoot(absolutePath);
+    // Apply the edit directly to the file
+    const { changedFiles, totalChanges } = await applyWorkspaceEdit(
+      workspaceEdit
+    );
 
-    const { connection, serverProcess } = await getLSPInstance(projectRoot);
-
-    try {
-      // Open the document in the language server
-      await connection.sendNotification(
-        DidOpenTextDocumentNotification.type.method,
-        {
-          textDocument: {
-            uri: fileUri,
-            languageId: getLanguageIdFromPath(absolutePath),
-            version: 1,
-            text: fileContent,
-          },
-        }
-      );
-
-      // Find the symbol by name in the file
-      const symbolPosition = await findSymbolPositionByName(
-        connection,
-        fileUri,
-        name,
-        type
-      );
-
-      if (!symbolPosition) {
-        return {
-          isError: true,
-          content: [
-            {
-              type: "text" as const,
-              text: `Symbol '${name}' of type '${type}' not found in file ${filePath}`,
-            },
-          ],
-        };
-      }
-
-      // Create a workspace edit to update the symbol
-      const workspaceEdit: WorkspaceEdit = {
-        changes: {
-          [fileUri]: [
-            {
-              range: symbolPosition.range,
-              newText: newContent,
-            },
-          ],
-        },
-      };
-
-      // Apply the edit directly to the file
-      const { changedFiles, totalChanges } = await applyWorkspaceEdit(
-        workspaceEdit
-      );
-
-      return {
-        content: [
-          {
-            type: "text" as const,
-            mimeType: "application/json",
-            text: JSON.stringify({
-              success: true,
-              changes: {
-                changedFiles,
-                totalChanges,
-                symbolPosition,
-              },
-            }),
-          },
-        ],
-      } as any;
-    } finally {
-      // Clean up resources
-      connection.dispose();
-      serverProcess.kill();
-    }
-  } catch (error) {
     return {
-      isError: true,
       content: [
         {
           type: "text" as const,
-          text: `Error editing symbol: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
+          mimeType: "application/json",
+          text: JSON.stringify({
+            success: true,
+            changes: {
+              changedFiles,
+              totalChanges,
+              symbolPosition,
+            },
+          }),
         },
       ],
     };
-  }
+  });
 }

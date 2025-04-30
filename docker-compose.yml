@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  openvscode-server:
+    build:
+      context: .  # Directory where your Dockerfile is located
+      dockerfile: Dockerfile  # Ensure this points to your actual Dockerfile
+    container_name: openvscode-server
+    ports:
+      - "3000:3000"  # VS Code web UI
+      - "5007:5007"  # Custom port if needed
+    volumes:
+      - ${PROJECT_PATH:-.}:/home/workspace/project                       # Mount current directory as workspace
+    environment:
+      - OPENVSCODE_SERVER_ROOT=/home/.openvscode-server
+    command: --default-folder /home/workspace/project   # Set the default folder to the workspace folder
+    restart: unless-stopped  # Automatically restart the container if it fails

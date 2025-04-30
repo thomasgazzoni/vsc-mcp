@@ -1,17 +1,6 @@
-import * as fs from "fs";
-import * as path from "path";
-import {
-  DidOpenTextDocumentNotification
-} from "vscode-languageserver-protocol";
 import { z } from "zod";
-import { logger } from "../utils/logger.js";
-import { isPathAllowed } from "../utils/file-utils.js";
-import {
-  findProjectRoot,
-  getLanguageIdFromPath,
-  getLSPInstance,
-} from "../utils/lsp-utils.js";
 import { findSymbolPositionByName } from "../utils/symbol-utils.js";
+import { setupLSPTool } from "../utils/tool-utils.js";
 
 export const readSymbolTool = {
   name: "read_symbol",
@@ -61,62 +50,14 @@ export async function readSymbolHandler({
   name: string;
   type: string;
 }) {
-  try {
-    const absolutePath = path.resolve(filePath);
-    
-    // Check if the path is allowed
-    const pathCheck = isPathAllowed(absolutePath);
-    if (!pathCheck.allowed) {
-      return {
-        isError: true,
-        content: [
-          {
-            type: "text" as const,
-            text: pathCheck.error || "Access denied: File path is not within allowed directories",
-          },
-        ],
-      };
-    }
-    
-    if (!fs.existsSync(absolutePath)) {
-      return {
-        isError: true,
-        content: [
-          {
-            type: "text" as const,
-            text: `File not found: ${absolutePath}`,
-          },
-        ],
-      };
-    }
-
-    const fileUri = `file://${absolutePath}`;
-    const fileContent = fs.readFileSync(absolutePath, "utf-8");
-    const projectRoot = findProjectRoot(absolutePath);
-
-    const { connection, serverProcess } = await getLSPInstance(projectRoot);
-
-    try {
-      // Open the document in the language server
-      await connection.sendNotification(
-        DidOpenTextDocumentNotification.type.method,
-        {
-          textDocument: {
-            uri: fileUri,
-            languageId: getLanguageIdFromPath(absolutePath),
-            version: 1,
-            text: fileContent,
-          },
-        }
-      );
-
-      // Find the symbol by name in the file
-      const symbolPosition = await findSymbolPositionByName(
-        connection,
-        fileUri,
-        name,
-        type
-      );
+  return await setupLSPTool(readSymbolTool.name, filePath, async (params) => {
+    // Find the symbol by name in the file
+    const symbolPosition = await findSymbolPositionByName(
+      params.connection,
+      params.fileRelativeUri,
+      name,
+      type
+    );
 
       if (!symbolPosition) {
         return {
@@ -132,7 +73,7 @@ export async function readSymbolHandler({
 
       // Extract the symbol content using the range
       const range = symbolPosition.range;
-      const lines = fileContent.split('\n');
+      const lines = params.fileContent.split('\n');
       
       // Extract content based on the range
       let symbolContent = '';
@@ -171,22 +112,5 @@ export async function readSymbolHandler({
           },
         ],
       };
-    } finally {
-      // Clean up resources
-      connection.dispose();
-      serverProcess.kill();
-    }
-  } catch (error) {
-    return {
-      isError: true,
-      content: [
-        {
-          type: "text" as const,
-          text: `Error reading symbol: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
-        },
-      ],
-    };
-  }
+  });
 }
