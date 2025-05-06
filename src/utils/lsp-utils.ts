@@ -26,6 +26,8 @@ export function findProjectRoot(filePath: string): string {
   while (!foundRoot && projectRoot !== "/") {
     if (
       fs.existsSync(path.join(projectRoot, "tsconfig.json")) ||
+      fs.existsSync(path.join(projectRoot, "Cargo.toml")) ||
+      fs.existsSync(path.join(projectRoot, "project.json")) ||
       fs.existsSync(path.join(projectRoot, "package.json"))
     ) {
       foundRoot = true;
