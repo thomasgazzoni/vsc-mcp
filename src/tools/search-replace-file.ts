@@ -2,7 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { z } from "zod";
 import { logger } from "../utils/logger.js";
-import { isPathAllowed } from "../utils/file-utils.js";
+import { isPathAllowed, resolveAndValidatePath } from "../utils/file-utils.js";
 
 export const searchReplaceFileTool = {
   name: "search_replace_file",
@@ -51,33 +51,11 @@ export async function searchReplaceFileHandler({
   newContent: string;
 }) {
   try {
-    const absolutePath = path.resolve(filePath);
-    
-    // Check if the path is allowed
-    const pathCheck = isPathAllowed(absolutePath);
-    if (!pathCheck.allowed) {
-      return {
-        isError: true,
-        content: [
-          {
-            type: "text" as const,
-            text: pathCheck.error || "Access denied: File path is not within allowed directories",
-          },
-        ],
-      };
-    }
-    
-    if (!fs.existsSync(absolutePath)) {
-      return {
-        isError: true,
-        content: [
-          {
-            type: "text" as const,
-            text: `File not found: ${absolutePath}`,
-          },
-        ],
-      };
-    }
+   
+    const absolutePath = resolveAndValidatePath(filePath, {
+      mustExist: true,
+      mustBeFile: true,
+    });
 
     // Read the file content
     const fileContent = fs.readFileSync(absolutePath, "utf-8");

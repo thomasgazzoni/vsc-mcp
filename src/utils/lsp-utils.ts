@@ -1,7 +1,7 @@
 import * as cp from "child_process";
 import * as fs from "fs";
-import * as path from "path";
 import * as net from "net";
+import * as path from "path";
 import { createMessageConnection } from "vscode-jsonrpc";
 import {
   StreamMessageReader,
@@ -45,30 +45,47 @@ export function findProjectRoot(filePath: string): string {
   return projectRoot;
 }
 
+interface PooledServer {
+  connection: ReturnType<typeof createMessageConnection>;
+  serverProcess: { kill(): void };
+  openedDocs: Set<string>;
+}
+
+const lspPool = new Map<string, PooledServer>();
+
 export async function getLSPInstance(absolutePath: string) {
   // Find project root
   const projectRoot = findProjectRoot(absolutePath);
-  
+
   // Read file content
   const fileContent = fs.readFileSync(absolutePath, "utf-8");
-  
-  // Create file URI
-  const fileUri = `file://${absolutePath}`;
-  
+
   // Check if we should use VS Code's language server
   const useVSCode = process.env.USE_VSCODE_LSP === "true";
-  
-  // Create relative URI based on useVSCode setting
-  let fileRelativeUri: string;
-  if (useVSCode) {
-    // Create a fixed URI format for VS Code
-    const relativePath = absolutePath.replace(projectRoot, "").replace(/^\//, "");
-    fileRelativeUri = `file:///home/workspace/project/${relativePath}`;
-  } else {
-    // Use direct file URI
-    fileRelativeUri = fileUri;
+  const vscodePort = parseInt(process.env.VSCODE_BRIDGE_PORT || "5007", 10);
+
+  const poolKey = `${useVSCode ? "vscode" : "tsls"}::${projectRoot}`;
+
+  // create proper file-URI for the caller
+  const relativePath = absolutePath.replace(projectRoot, "").replace(/^\//, "");
+
+  const fileRelativeUri = useVSCode
+    ? `file:///home/workspace/project/${relativePath}`
+    : `file://${absolutePath}`;
+
+  if (lspPool.has(poolKey)) {
+    const pooled = lspPool.get(poolKey)!;
+
+    return {
+      connection: pooled.connection,
+      serverProcess: pooled.serverProcess,
+      projectRoot,
+      fileRelativeUri,
+      fileContent,
+      openedDocs: pooled.openedDocs,
+    };
   }
-  
+
   logger.debug(
     `Starting TypeScript language server for project: ${projectRoot}`
   );
@@ -76,8 +93,6 @@ export async function getLSPInstance(absolutePath: string) {
   let serverProcess;
   let reader;
   let writer;
-
-  const vscodePort = parseInt(process.env.VSCODE_BRIDGE_PORT || "5007", 10);
 
   if (useVSCode) {
     // Connect to VS Code's language server via socket
@@ -145,12 +160,20 @@ export async function getLSPInstance(absolutePath: string) {
   logger.debug("Initializing language server");
   await connection.sendRequest(InitializeRequest.type.method, initializeParams);
   logger.debug("Language server initialized");
-  return { 
-    connection, 
-    serverProcess, 
-    projectRoot, 
-    fileRelativeUri, 
-    fileContent 
+
+  lspPool.set(poolKey, {
+    connection,
+    serverProcess,
+    openedDocs: new Set<string>(),
+  });
+
+  return {
+    connection,
+    serverProcess,
+    projectRoot,
+    fileRelativeUri,
+    fileContent,
+    openedDocs: lspPool.get(poolKey)!.openedDocs,
   };
 }
 

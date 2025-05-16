@@ -34,22 +34,25 @@ export async function setupLSPTool(
   }
 
   // Get LSP instance and file information
-  const { connection, serverProcess, fileRelativeUri, fileContent } =
+  const { connection, fileRelativeUri, fileContent, openedDocs } =
     await getLSPInstance(absolutePath);
 
   try {
-    // Open the document in the language server
-    await connection.sendNotification(
-      DidOpenTextDocumentNotification.type.method,
-      {
-        textDocument: {
-          uri: fileRelativeUri,
-          languageId: getLanguageIdFromPath(absolutePath),
-          version: 1,
-          text: fileContent,
-        },
-      }
-    );
+    if (!openedDocs.has(fileRelativeUri)) {
+      // Open the document in the language server
+      await connection.sendNotification(
+        DidOpenTextDocumentNotification.type.method,
+        {
+          textDocument: {
+            uri: fileRelativeUri,
+            languageId: getLanguageIdFromPath(absolutePath),
+            version: 1,
+            text: fileContent,
+          },
+        }
+      );
+      openedDocs.add(fileRelativeUri);
+    }
 
     const result = await toolImplementation({
       connection,
@@ -58,16 +61,8 @@ export async function setupLSPTool(
       fileContent,
     });
 
-    // Clean up resources
-    connection.dispose();
-    serverProcess.kill();
-
     return result;
   } catch (error) {
-    // Clean up resources
-    connection.dispose();
-    serverProcess.kill();
-
     return {
       isError: true,
       content: [

@@ -1,8 +1,8 @@
 import * as fs from "fs";
 import * as path from "path";
 import { z } from "zod";
+import { resolveAndValidatePath } from "../utils/file-utils.js";
 import { logger } from "../utils/logger.js";
-import { isPathAllowed } from "../utils/file-utils.js";
 
 export const writeFileTool = {
   name: "write_file",
@@ -14,9 +14,10 @@ export const writeFileTool = {
   },
 };
 
-export function writeFilePrompts(
-  params: { filePath: string; newContent: string }
-) {
+export function writeFilePrompts(params: {
+  filePath: string;
+  newContent: string;
+}) {
   return {
     messages: [
       {
@@ -38,50 +39,24 @@ export async function writeFileHandler({
   newContent: string;
 }) {
   try {
-    const absolutePath = path.resolve(filePath);
-    
-    // Check if the path is allowed
-    const pathCheck = isPathAllowed(absolutePath);
-    if (!pathCheck.allowed) {
-      return {
-        isError: true,
-        content: [
-          {
-            type: "text" as const,
-            text: pathCheck.error || "Access denied: File path is not within allowed directories",
-          },
-        ],
-      };
-    }
-    
+    const absolutePath = resolveAndValidatePath(filePath);
+
     // Create directory if it doesn't exist
     const directory = path.dirname(absolutePath);
     if (!fs.existsSync(directory)) {
-      // Check if the directory path is allowed
-      const dirPathCheck = isPathAllowed(directory);
-      if (!dirPathCheck.allowed) {
-        return {
-          isError: true,
-          content: [
-            {
-              type: "text" as const,
-              text: dirPathCheck.error || "Access denied: Directory path is not within allowed directories",
-            },
-          ],
-        };
-      }
-      
       fs.mkdirSync(directory, { recursive: true });
       logger.info(`Created directory: ${directory}`);
     }
 
     // Write the file
     fs.writeFileSync(absolutePath, newContent, "utf-8");
-    
+
     const fileExists = fs.existsSync(absolutePath);
     const fileSize = fileExists ? fs.statSync(absolutePath).size : 0;
 
-    logger.info(`File written successfully: ${absolutePath} (${fileSize} bytes)`);
+    logger.info(
+      `File written successfully: ${absolutePath} (${fileSize} bytes)`
+    );
 
     return {
       content: [
@@ -98,7 +73,11 @@ export async function writeFileHandler({
       ],
     };
   } catch (error) {
-    logger.error(`Error writing file: ${error instanceof Error ? error.message : String(error)}`);
+    logger.error(
+      `Error writing file: ${
+        error instanceof Error ? error.message : String(error)
+      }`
+    );
     return {
       isError: true,
       content: [

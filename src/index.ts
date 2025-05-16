@@ -43,96 +43,21 @@ async function main() {
     version: "0.1.0",
   });
 
-  logger.info("Registering edit_symbol tool");
-  server.tool(
-    editSymbolTool.name,
-    editSymbolTool.description,
-    editSymbolTool.paramsSchema,
-    editSymbolHandler,
-  );
-  server.prompt(
-    editSymbolTool.name,
-    editSymbolTool.paramsSchema,
-    editSymbolPrompts,
-  );
+  const toolRegistry = [
+    [editSymbolTool, editSymbolHandler, editSymbolPrompts],
+    [writeFileTool, writeFileHandler, writeFilePrompts],
+    [searchReplaceFileTool, searchReplaceFileHandler, searchReplaceFilePrompts],
+    [readSymbolTool, readSymbolHandler, readSymbolPrompts],
+    [readFileTool, readFileHandler, readFilePrompts],
+    [getErrorsTool, getErrorsHandler, getErrorsPrompts],
+    [findReferencesTool, findReferencesHandler, findReferencesPrompts],
+  ] as const;
 
-  logger.info("Registering write_file tool");
-  server.tool(
-    writeFileTool.name,
-    writeFileTool.description,
-    writeFileTool.paramsSchema,
-    writeFileHandler,
-  );
-  server.prompt(
-    writeFileTool.name,
-    writeFileTool.paramsSchema,
-    writeFilePrompts,
-  );
-
-  logger.info("Registering search_replace_file tool");
-  server.tool(
-    searchReplaceFileTool.name,
-    searchReplaceFileTool.description,
-    searchReplaceFileTool.paramsSchema,
-    searchReplaceFileHandler,
-  );
-  server.prompt(
-    searchReplaceFileTool.name,
-    searchReplaceFileTool.paramsSchema,
-    searchReplaceFilePrompts,
-  );
-
-  logger.info("Registering read_symbol tool");
-  server.tool(
-    readSymbolTool.name,
-    readSymbolTool.description,
-    readSymbolTool.paramsSchema,
-    readSymbolHandler,
-  );
-  server.prompt(
-    readSymbolTool.name,
-    readSymbolTool.paramsSchema,
-    readSymbolPrompts,
-  );
-
-  logger.info("Registering read_file tool");
-  server.tool(
-    readFileTool.name,
-    readFileTool.description,
-    readFileTool.paramsSchema,
-    readFileHandler,
-  );
-  server.prompt(
-    readFileTool.name,
-    readFileTool.paramsSchema,
-    readFilePrompts,
-  );
-
-  logger.info("Registering get_errors tool");
-  server.tool(
-    getErrorsTool.name,
-    getErrorsTool.description,
-    getErrorsTool.paramsSchema,
-    getErrorsHandler,
-  );
-  server.prompt(
-    getErrorsTool.name,
-    getErrorsTool.paramsSchema,
-    getErrorsPrompts,
-  );
-
-  logger.info("Registering find_references tool");
-  server.tool(
-    findReferencesTool.name,
-    findReferencesTool.description,
-    findReferencesTool.paramsSchema,
-    findReferencesHandler,
-  );
-  server.prompt(
-    findReferencesTool.name,
-    findReferencesTool.paramsSchema,
-    findReferencesPrompts,
-  );
+  for (const [tool, handler, promptFn] of toolRegistry) {
+    logger.info(`Registering ${tool.name} tool`);
+    server.tool(tool.name, tool.description, tool.paramsSchema, handler);
+    server.prompt(tool.name, tool.paramsSchema, promptFn);
+  }
 
   // Create and connect the transport
   const transport = new StdioServerTransport();

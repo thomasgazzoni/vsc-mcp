@@ -1,4 +1,5 @@
 import * as path from "path";
+import * as fs from "fs";
 import { logger } from "./logger.js";
 
 /**
@@ -68,4 +69,44 @@ function isPathWithinDirectory(filePath: string, directory: string): { allowed: 
     allowed: false,
     error: `Access denied: ${filePath} is not within directory: ${directory}`
   };
+}
+
+
+/**
+ * Resolves a user-supplied path, checks it against the allowed-directories
+ * list, and (optionally) verifies existence and file/dir type.
+ *
+ * It throws a plain Error on any violation so callers can keep their code
+ * linear and rely on `try/catch`.
+ */
+export function resolveAndValidatePath(
+  rawPath: string,
+  opts: {
+    mustExist?: boolean;
+    mustBeFile?: boolean;
+    mustBeDirectory?: boolean;
+  } = {}
+): string {
+  const absolutePath = path.resolve(rawPath);
+
+  const { allowed, error } = isPathAllowed(absolutePath);
+  if (!allowed) throw new Error(error || "Access denied");
+
+  if (opts.mustExist && !fs.existsSync(absolutePath)) {
+    throw new Error(`File not found: ${absolutePath}`);
+  }
+
+  if (opts.mustBeFile) {
+    if (!fs.existsSync(absolutePath) || fs.statSync(absolutePath).isDirectory()) {
+      throw new Error(`Path is not a file: ${absolutePath}`);
+    }
+  }
+
+  if (opts.mustBeDirectory) {
+    if (!fs.existsSync(absolutePath) || !fs.statSync(absolutePath).isDirectory()) {
+      throw new Error(`Path is not a directory: ${absolutePath}`);
+    }
+  }
+
+  return absolutePath;
 }

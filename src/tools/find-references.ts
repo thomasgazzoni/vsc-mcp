@@ -1,19 +1,13 @@
-import * as fs from "fs";
 import * as path from "path";
 import {
-  DidOpenTextDocumentNotification,
-  ReferenceParams,
   Location,
+  ReferenceParams,
+  ReferencesRequest
 } from "vscode-languageserver-protocol";
 import { z } from "zod";
 import { logger } from "../utils/logger.js";
-import { isPathAllowed } from "../utils/file-utils.js";
-import {
-  findProjectRoot,
-  getLanguageIdFromPath,
-  getLSPInstance,
-} from "../utils/lsp-utils.js";
 import { findSymbolPositionByName } from "../utils/symbol-utils.js";
+import { setupLSPTool } from "../utils/tool-utils.js";
 
 export const findReferencesTool = {
   name: "find_references",
@@ -63,59 +57,12 @@ export async function findReferencesHandler({
   name: string;
   type: string;
 }) {
-  try {
-    const absolutePath = path.resolve(filePath);
-    
-    // Check if the path is allowed
-    const pathCheck = isPathAllowed(absolutePath);
-    if (!pathCheck.allowed) {
-      return {
-        isError: true,
-        content: [
-          {
-            type: "text" as const,
-            text: pathCheck.error || "Access denied: File path is not within allowed directories",
-          },
-        ],
-      };
-    }
-    
-    if (!fs.existsSync(absolutePath)) {
-      return {
-        isError: true,
-        content: [
-          {
-            type: "text" as const,
-            text: `File not found: ${absolutePath}`,
-          },
-        ],
-      };
-    }
-
-    const fileUri = `file://${absolutePath}`;
-    const fileContent = fs.readFileSync(absolutePath, "utf-8");
-    const projectRoot = findProjectRoot(absolutePath);
-
-    const { connection, serverProcess } = await getLSPInstance(projectRoot);
-
-    try {
-      // Open the document in the language server
-      await connection.sendNotification(
-        DidOpenTextDocumentNotification.type.method,
-        {
-          textDocument: {
-            uri: fileUri,
-            languageId: getLanguageIdFromPath(absolutePath),
-            version: 1,
-            text: fileContent,
-          },
-        }
-      );
+   return await setupLSPTool(findReferencesTool.name, filePath, async (params) => {
 
       // First find the symbol position
       const symbolPosition = await findSymbolPositionByName(
-        connection,
-        fileUri,
+        params.connection,
+        params.fileRelativeUri,
         name,
         type
       );
@@ -136,13 +83,13 @@ export async function findReferencesHandler({
       logger.debug(`Finding references to symbol at position ${JSON.stringify(symbolPosition.range)}`);
       
       const referenceParams: ReferenceParams = {
-        textDocument: { uri: fileUri },
+        textDocument: { uri: params.fileRelativeUri },
         position: symbolPosition.range.start,
         context: { includeDeclaration: true }
       };
       
-      const references = await connection.sendRequest<Location[]>(
-        "textDocument/references",
+      const references = await params.connection.sendRequest<Location[]>(
+        ReferencesRequest.type.method,
         referenceParams
       );
 
@@ -182,23 +129,5 @@ export async function findReferencesHandler({
           },
         ],
       };
-    } finally {
-      // Clean up resources
-      connection.dispose();
-      serverProcess.kill();
-    }
-  } catch (error) {
-    logger.error(`Error finding references: ${error instanceof Error ? error.message : String(error)}`);
-    return {
-      isError: true,
-      content: [
-        {
-          type: "text" as const,
-          text: `Error finding references: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
-        },
-      ],
-    };
-  }
+   });
 }

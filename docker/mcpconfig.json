@@ -1,0 +1,21 @@
+{
+    "mcpServers": {
+      "repomix": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "repomix",
+          "--mcp"
+        ]
+      },
+      "vsc-mcp": {
+        "command": "bun",
+        "args": ["/app/vsc-mcp/src/index.ts"],
+        "env": {
+          "USE_VSCODE_LSP": "true",
+          "LOG_DIR": "/home/workspace/project/logs",
+          "ALLOWED_DIRECTORIES": "/home/workspace/project"
+        }
+      }
+    }
+  }

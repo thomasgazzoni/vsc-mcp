@@ -6,7 +6,8 @@
   "type": "module",
   "module": "index.ts",
   "bin": {
-    "vsc-mcp": "./build/index.js"
+    "vsc-mcp": "./build/index.js",
+    "hugo-mcp-parser": "./build/scripts/cli.js"
   },
   "files": [
     "build",
@@ -19,21 +20,39 @@
     "test": "vitest",
     "start": "node build/index.js",
     "inspect": "bunx @modelcontextprotocol/inspector bun src/index.ts",
-    "postbuild": "chmod +x ./build/index.js",
-    "prepublishOnly": "bun run clean && bun run build"
+    "postbuild": "chmod +x ./build/index.js && chmod +x ./build/scripts/cli.js",
+    "prepublishOnly": "bun run clean && bun run build",
+    "parse-hugo": "node build/scripts/cli.js parse"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.9.0",
+    "axios": "^1.6.7",
+    "body-parser": "^2.2.0",
+    "clipboardy": "^4.0.0",
+    "commander": "^12.0.0",
+    "cors": "^2.8.5",
     "dotenv": "16.5.0",
+    "eventsource": "^4.0.0",
+    "express": "^5.1.0",
+    "mdast-util-to-string": "^4.0.0",
+    "remark-frontmatter": "^5.0.0",
+    "remark-parse": "^11.0.0",
+    "remark-stringify": "^11.0.0",
+    "typescript-language-server": "4.3.4",
+    "unified": "^11.0.5",
+    "unist-util-visit": "^5.0.0",
     "vscode-jsonrpc": "8.2.1",
     "vscode-languageserver-protocol": "3.17.5",
     "vscode-languageserver-textdocument": "^1.0.12",
     "vscode-languageserver-types": "3.17.5",
-    "typescript-language-server": "4.3.4",
     "zod": "3.24.2"
   },
   "devDependencies": {
+    "@types/axios": "^0.9.36",
     "@types/bun": "1.2.9",
+    "@types/commander": "^2.12.0",
+    "@types/eventsource": "^1.1.15",
+    "@types/express": "^5.0.1",
     "@types/node": "^22.14.0",
     "typescript": "^5.8.3",
     "vitest": "3.1.1"
